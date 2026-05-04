@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>AI Reflex Challenge - Prize Focused</title>
+    <title>AI Reflex Challenge - Final</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;900&family=Noto+Sans+KR:wght@300;700&display=swap');
@@ -31,7 +31,6 @@
             box-shadow: 0 0 15px rgba(56, 189, 248, 0.2); 
         }
         
-        /* 안내 문구 강조 애니메이션 */
         @keyframes pulse-border {
             0% { border-color: rgba(56, 189, 248, 0.3); transform: scale(1); }
             50% { border-color: rgba(56, 189, 248, 0.8); transform: scale(1.02); }
@@ -70,12 +69,11 @@
                 </div>
             </div>
 
-            <!-- Save Screen (안내 문구 크기 및 강조 강화) -->
+            <!-- Save Screen -->
             <div id="screen-save" class="hidden pointer-events-auto w-full max-w-sm">
                 <div class="glass-panel p-8 rounded-[2.5rem]">
                     <h2 class="text-2xl font-black text-rose-500 mb-4 text-center uppercase font-orbitron italic">Game Over</h2>
                     
-                    <!-- 강조된 안내 문구 -->
                     <div class="prize-notice bg-sky-500/20 py-4 px-2 rounded-2xl border-2 border-sky-400/50 mb-6 text-center shadow-lg shadow-sky-500/10">
                         <p class="text-white text-base font-bold leading-tight">
                             🎁 추후 상품 증정을 위해<br/>정보를 입력해주세요
@@ -84,11 +82,11 @@
                     
                     <div class="bg-slate-900/60 rounded-2xl p-4 mb-6 flex justify-between items-center border border-slate-800">
                         <div>
-                            <p class="text-slate-500 text-[9px] font-bold font-orbitron mb-1">FINAL SCORE</p>
+                            <p class="text-slate-500 text-[9px] font-bold font-orbitron mb-1 tracking-tighter">FINAL SCORE</p>
                             <span id="final-score" class="text-3xl font-black text-white font-orbitron">0</span>
                         </div>
                         <div class="text-right">
-                            <p class="text-slate-500 text-[9px] font-bold font-orbitron mb-1">DIFFICULTY</p>
+                            <p class="text-slate-500 text-[9px] font-bold font-orbitron mb-1 tracking-tighter">DIFFICULTY</p>
                             <span id="final-level-txt" class="text-lg font-black text-sky-400 font-orbitron">LV.01</span>
                         </div>
                     </div>
@@ -232,8 +230,19 @@
         };
 
         const ui = {
-            showAdmin: () => { document.getElementById('screen-start').classList.add('hidden'); document.getElementById('screen-admin-auth').classList.remove('hidden'); },
-            doAdminAuth: () => { if (document.getElementById('admin-pw').value === 'one0314') ui.loadList(); else alert("INVALID PW"); },
+            showAdmin: () => { 
+                document.getElementById('screen-start').classList.add('hidden'); 
+                document.getElementById('screen-admin-auth').classList.remove('hidden'); 
+                document.getElementById('admin-pw').value = ''; // 필드 초기화
+            },
+            doAdminAuth: () => { 
+                // 비밀번호 변경: one0314
+                if (document.getElementById('admin-pw').value === 'one0314') {
+                    ui.loadList(); 
+                } else {
+                    alert("비밀번호가 올바르지 않습니다."); 
+                }
+            },
             goHome: () => {
                 state.mode = 'IDLE';
                 ['hud', 'screen-save', 'screen-admin-auth', 'screen-list'].forEach(id => document.getElementById(id).classList.add('hidden'));
@@ -248,17 +257,23 @@
                 const container = document.getElementById('data-list');
                 container.innerHTML = '<p class="text-center text-slate-500 font-orbitron text-xs mt-10">SYNCING...</p>';
                 
-                const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'reflex_scores');
-                onSnapshot(colRef, (snap) => {
-                    const data = snap.docs.map(d => d.data()).sort((a,b) => (b.score || 0) - (a.score || 0));
-                    container.innerHTML = data.length ? '' : '<p class="text-center mt-10 text-slate-500 font-orbitron">EMPTY</p>';
-                    data.forEach((p, i) => {
-                        const card = document.createElement('div');
-                        card.className = 'glass-panel p-6 rounded-2xl flex justify-between items-center';
-                        card.innerHTML = `<div><p class="text-white font-bold">${i+1}. ${p.name} <span class="text-slate-500 font-normal text-xs ml-1">${p.age}세</span></p><p class="text-[9px] text-slate-600 mt-1">${p.phone}</p></div><div class="text-right"><p class="text-xl font-black text-sky-400 font-orbitron">${p.score}</p></div>`;
-                        container.appendChild(card);
+                try {
+                    const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'reflex_scores');
+                    onSnapshot(colRef, (snap) => {
+                        const data = snap.docs.map(d => d.data()).sort((a,b) => (b.score || 0) - (a.score || 0));
+                        container.innerHTML = data.length ? '' : '<p class="text-center mt-10 text-slate-500 font-orbitron">EMPTY</p>';
+                        data.forEach((p, i) => {
+                            const card = document.createElement('div');
+                            card.className = 'glass-panel p-6 rounded-2xl flex justify-between items-center';
+                            card.innerHTML = `<div><p class="text-white font-bold">${i+1}. ${p.name} <span class="text-slate-500 font-normal text-xs ml-1">${p.age}세</span></p><p class="text-[9px] text-slate-600 mt-1">${p.phone}</p></div><div class="text-right"><p class="text-xl font-black text-sky-400 font-orbitron">${p.score}</p></div>`;
+                            container.appendChild(card);
+                        });
+                    }, (err) => {
+                        container.innerHTML = `<p class="text-center text-rose-500 text-xs mt-10">LOAD ERROR: ${err.code}</p>`;
                     });
-                });
+                } catch (e) {
+                    container.innerHTML = `<p class="text-center text-rose-500 text-xs mt-10">ERROR: ${e.message}</p>`;
+                }
             }
         };
 
