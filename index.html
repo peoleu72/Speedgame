@@ -233,7 +233,7 @@
 
         const ui = {
             showAdmin: () => { document.getElementById('screen-start').classList.add('hidden'); document.getElementById('screen-admin-auth').classList.remove('hidden'); },
-            doAdminAuth: () => { if (document.getElementById('admin-pw').value === 'admin1234') ui.loadList(); else alert("INVALID PW"); },
+            doAdminAuth: () => { if (document.getElementById('admin-pw').value === 'one0314') ui.loadList(); else alert("INVALID PW"); },
             goHome: () => {
                 state.mode = 'IDLE';
                 ['hud', 'screen-save', 'screen-admin-auth', 'screen-list'].forEach(id => document.getElementById(id).classList.add('hidden'));
