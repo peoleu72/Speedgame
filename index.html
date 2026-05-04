@@ -41,7 +41,7 @@
         
         <div id="ui-layer" class="absolute inset-0 z-10 flex items-center justify-center pointer-events-none p-6 text-center">
             
-            <!-- HUD -->
+            <!-- HUD (상단 UI) -->
             <div id="hud" class="hidden absolute top-10 left-6 right-6 flex justify-between pointer-events-none">
                 <div class="glass-panel px-5 py-2 rounded-xl border-l-4 border-sky-500 text-left">
                     <p class="text-[9px] text-sky-400 font-bold uppercase font-orbitron">Score</p>
@@ -53,7 +53,7 @@
                 </div>
             </div>
 
-            <!-- Start Screen -->
+            <!-- 메인 화면 -->
             <div id="screen-start" class="pointer-events-auto w-full max-w-sm">
                 <div class="glass-panel p-10 rounded-[3rem]">
                     <h1 class="text-4xl font-black text-sky-400 mb-2 italic uppercase font-orbitron">Reflex AI</h1>
@@ -63,12 +63,12 @@
                 </div>
             </div>
 
-            <!-- Save Screen -->
+            <!-- 게임 오버/저장 화면 -->
             <div id="screen-save" class="hidden pointer-events-auto w-full max-w-sm">
                 <div class="glass-panel p-8 rounded-[2.5rem]">
                     <h2 class="text-2xl font-black text-rose-500 mb-4 uppercase font-orbitron italic">Game Over</h2>
                     <div class="prize-notice bg-sky-500/20 py-4 px-2 rounded-2xl border-2 border-sky-400/50 mb-6 text-center shadow-lg shadow-sky-500/10">
-                        <p class="text-white text-base font-bold leading-tight">🎁 정보 입력 후 기록을 저장하세요</p>
+                        <p class="text-white text-base font-bold leading-tight">🎁 추후 상품 증정을 위해<br/>정보를 입력해주세요</p>
                     </div>
                     <div class="bg-slate-900/60 rounded-2xl p-4 mb-6 flex justify-between items-center border border-slate-800">
                         <div class="text-left">
@@ -90,7 +90,7 @@
                 </div>
             </div>
 
-            <!-- Admin Auth -->
+            <!-- 관리자 인증 -->
             <div id="screen-admin-auth" class="hidden pointer-events-auto w-full max-w-xs">
                 <div class="glass-panel p-10 rounded-[2.5rem]">
                     <h3 class="text-center text-[10px] text-sky-400 font-bold font-orbitron mb-6">SECURE LOGIN</h3>
@@ -101,7 +101,7 @@
             </div>
         </div>
 
-        <!-- Participant List -->
+        <!-- 참여자 목록 -->
         <div id="screen-list" class="hidden absolute inset-0 bg-slate-950 z-[100] flex flex-col pointer-events-auto">
             <header class="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-900">
                 <h2 class="text-sky-400 font-black text-xl font-orbitron italic">RECORDS</h2>
@@ -116,7 +116,7 @@
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
         import { getFirestore, collection, addDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
 
-        // 사용자 제공 파이어베이스 설정 적용
+        // 사용자 제공 파이어베이스 설정 (Speedgame-b10ff)
         const firebaseConfig = {
           apiKey: "AIzaSyA6oBfLjgXLr5JbzEYfrNSSpQp5Y_zueWk",
           authDomain: "speedgame-b10ff.firebaseapp.com",
@@ -150,7 +150,7 @@
                 await signInAnonymously(auth);
             } catch (e) {
                 console.error(e);
-                status.innerText = "OFFLINE MODE (CHECK CONFIG)";
+                status.innerText = "AUTH REQUIRED (OFFLINE)";
                 status.classList.replace('text-slate-500', 'text-rose-500');
             }
         }
@@ -211,11 +211,10 @@
                 if (!name || !age || !phone) return;
 
                 const btn = document.getElementById('btn-save');
-                if (!db) { alert("서버에 연결되지 않았습니다."); ui.goHome(); return; }
+                if (!db) { alert("연결 대기 중입니다."); return; }
 
                 btn.disabled = true; btn.innerText = "SAVING...";
                 try {
-                    // Firebase 규칙에 따른 올바른 경로 설정
                     const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'reflex_scores');
                     await addDoc(colRef, { 
                         name, age, phone, 
@@ -245,7 +244,7 @@
                 ctx.clearRect(0,0,canvas.width,canvas.height);
             },
             loadList: () => {
-                if (!db) { alert("서버에 연결되지 않았습니다."); return; }
+                if (!db) { alert("연결 대기 중입니다."); return; }
                 document.getElementById('screen-admin-auth').classList.add('hidden');
                 document.getElementById('screen-list').classList.remove('hidden');
                 const container = document.getElementById('data-list');
