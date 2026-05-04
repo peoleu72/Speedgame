@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>AI Reflex Challenge - Final</title>
+    <title>AI Reflex Challenge - Connection Fixed</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;900&family=Noto+Sans+KR:wght@300;700&display=swap');
@@ -30,15 +30,13 @@
             background: rgba(30, 41, 59, 0.9) !important;
             box-shadow: 0 0 15px rgba(56, 189, 248, 0.2); 
         }
-        
+
         @keyframes pulse-border {
             0% { border-color: rgba(56, 189, 248, 0.3); transform: scale(1); }
             50% { border-color: rgba(56, 189, 248, 0.8); transform: scale(1.02); }
             100% { border-color: rgba(56, 189, 248, 0.3); transform: scale(1); }
         }
-        .prize-notice {
-            animation: pulse-border 2s infinite ease-in-out;
-        }
+        .prize-notice { animation: pulse-border 2s infinite ease-in-out; }
     </style>
 </head>
 <body>
@@ -63,7 +61,7 @@
             <div id="screen-start" class="pointer-events-auto w-full max-w-sm">
                 <div class="glass-panel p-10 rounded-[3rem] text-center">
                     <h1 class="text-4xl font-black text-sky-400 mb-2 italic uppercase font-orbitron">Reflex AI</h1>
-                    <p id="status-text" class="text-slate-500 text-[9px] mb-10 tracking-[0.3em] font-orbitron">WAITING AUTH...</p>
+                    <p id="status-text" class="text-slate-500 text-[9px] mb-10 tracking-[0.3em] font-orbitron italic">INITIALIZING SYSTEM...</p>
                     <button id="btn-start" onclick="window.game.start()" disabled class="btn-tap w-full bg-slate-800 py-5 rounded-2xl font-black text-lg uppercase font-orbitron text-white opacity-40 transition-all">Connect</button>
                     <button onclick="window.ui.showAdmin()" class="w-full mt-8 text-slate-700 text-[10px] font-bold uppercase font-orbitron hover:text-sky-500 transition-colors">Admin Dashboard</button>
                 </div>
@@ -127,38 +125,48 @@
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
         import { getFirestore, collection, addDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
 
-        const firebaseConfig = JSON.parse(__firebase_config);
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
+        // 환경 변수 안전 로드
+        let firebaseApp, auth, db;
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-reflex-app';
-        
         let user = null;
 
-        const initAuth = async () => {
+        const setUIAuthenticated = () => {
+            const status = document.getElementById('status-text');
+            status.innerText = "SYSTEM ONLINE";
+            status.className = "text-sky-400 text-[9px] mb-10 tracking-[0.3em] font-orbitron italic";
+            const btn = document.getElementById('btn-start');
+            btn.disabled = false;
+            btn.className = "btn-tap w-full bg-sky-600 py-5 rounded-2xl font-black text-lg uppercase font-orbitron text-white";
+            btn.innerText = "START SESSION";
+        };
+
+        const tryAuth = async () => {
             try {
+                if (typeof __firebase_config === 'undefined') throw new Error("No Config");
+                const config = JSON.parse(__firebase_config);
+                firebaseApp = initializeApp(config);
+                auth = getAuth(firebaseApp);
+                db = getFirestore(firebaseApp);
+
+                onAuthStateChanged(auth, (u) => {
+                    user = u;
+                    if (u) setUIAuthenticated();
+                });
+
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                     await signInWithCustomToken(auth, __initial_auth_token);
                 } else {
                     await signInAnonymously(auth);
                 }
-            } catch (e) { console.error(e); }
-        };
-
-        onAuthStateChanged(auth, (u) => {
-            user = u;
-            if (u) {
+            } catch (e) {
+                console.warn("Auth Failed, enabling local mode", e);
+                // 인증에 실패하더라도 버튼은 활성화 (데이터 저장은 실패할 수 있음)
+                setUIAuthenticated();
                 const status = document.getElementById('status-text');
-                status.innerText = "AUTHENTICATED";
-                status.classList.add('text-sky-400');
-                const btn = document.getElementById('btn-start');
-                btn.disabled = false;
-                btn.className = "btn-tap w-full bg-sky-600 py-5 rounded-2xl font-black text-lg uppercase font-orbitron text-white";
-                btn.innerText = "START GAME";
+                status.innerText = "LOCAL MODE (OFFLINE)";
+                status.className = "text-rose-500 text-[9px] mb-10 tracking-[0.3em] font-orbitron italic";
             }
-        });
-
-        initAuth();
+        };
 
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
@@ -215,12 +223,18 @@
 
                 const btn = document.getElementById('btn-save');
                 const err = document.getElementById('msg-error');
-                btn.disabled = true; btn.innerText = "SAVING...";
+                
+                if (!db) {
+                    err.innerText = "OFFLINE: RECORD NOT SAVED";
+                    err.classList.remove('hidden');
+                    setTimeout(() => ui.goHome(), 2000);
+                    return;
+                }
 
+                btn.disabled = true; btn.innerText = "SAVING...";
                 try {
-                    if (!user) throw new Error("AUTH_REQUIRED");
                     const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'reflex_scores');
-                    await addDoc(colRef, { name, age, phone, score: state.score, level: state.level, uid: user.uid, createdAt: serverTimestamp() });
+                    await addDoc(colRef, { name, age, phone, score: state.score, level: state.level, uid: user?.uid || 'anonymous', createdAt: serverTimestamp() });
                     ui.goHome();
                 } catch (e) {
                     btn.disabled = false; btn.innerText = "RETRY";
@@ -230,19 +244,8 @@
         };
 
         const ui = {
-            showAdmin: () => { 
-                document.getElementById('screen-start').classList.add('hidden'); 
-                document.getElementById('screen-admin-auth').classList.remove('hidden'); 
-                document.getElementById('admin-pw').value = ''; // 필드 초기화
-            },
-            doAdminAuth: () => { 
-                // 비밀번호 변경: one0314
-                if (document.getElementById('admin-pw').value === 'one0314') {
-                    ui.loadList(); 
-                } else {
-                    alert("비밀번호가 올바르지 않습니다."); 
-                }
-            },
+            showAdmin: () => { document.getElementById('screen-start').classList.add('hidden'); document.getElementById('screen-admin-auth').classList.remove('hidden'); },
+            doAdminAuth: () => { if (document.getElementById('admin-pw').value === 'one0314') ui.loadList(); else alert("INVALID PW"); },
             goHome: () => {
                 state.mode = 'IDLE';
                 ['hud', 'screen-save', 'screen-admin-auth', 'screen-list'].forEach(id => document.getElementById(id).classList.add('hidden'));
@@ -252,32 +255,29 @@
                 ctx.clearRect(0,0,canvas.width,canvas.height);
             },
             loadList: () => {
+                if (!db) { alert("OFFLINE MODE: NO DATA"); return; }
                 document.getElementById('screen-admin-auth').classList.add('hidden');
                 document.getElementById('screen-list').classList.remove('hidden');
                 const container = document.getElementById('data-list');
                 container.innerHTML = '<p class="text-center text-slate-500 font-orbitron text-xs mt-10">SYNCING...</p>';
                 
-                try {
-                    const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'reflex_scores');
-                    onSnapshot(colRef, (snap) => {
-                        const data = snap.docs.map(d => d.data()).sort((a,b) => (b.score || 0) - (a.score || 0));
-                        container.innerHTML = data.length ? '' : '<p class="text-center mt-10 text-slate-500 font-orbitron">EMPTY</p>';
-                        data.forEach((p, i) => {
-                            const card = document.createElement('div');
-                            card.className = 'glass-panel p-6 rounded-2xl flex justify-between items-center';
-                            card.innerHTML = `<div><p class="text-white font-bold">${i+1}. ${p.name} <span class="text-slate-500 font-normal text-xs ml-1">${p.age}세</span></p><p class="text-[9px] text-slate-600 mt-1">${p.phone}</p></div><div class="text-right"><p class="text-xl font-black text-sky-400 font-orbitron">${p.score}</p></div>`;
-                            container.appendChild(card);
-                        });
-                    }, (err) => {
-                        container.innerHTML = `<p class="text-center text-rose-500 text-xs mt-10">LOAD ERROR: ${err.code}</p>`;
+                const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'reflex_scores');
+                onSnapshot(colRef, (snap) => {
+                    const data = snap.docs.map(d => d.data()).sort((a,b) => (b.score || 0) - (a.score || 0));
+                    container.innerHTML = data.length ? '' : '<p class="text-center mt-10 text-slate-500 font-orbitron">EMPTY</p>';
+                    data.forEach((p, i) => {
+                        const card = document.createElement('div');
+                        card.className = 'glass-panel p-6 rounded-2xl flex justify-between items-center';
+                        card.innerHTML = `<div><p class="text-white font-bold">${i+1}. ${p.name} <span class="text-slate-500 font-normal text-xs ml-1">${p.age}세</span></p><p class="text-[9px] text-slate-600 mt-1">${p.phone}</p></div><div class="text-right"><p class="text-xl font-black text-sky-400 font-orbitron">${p.score}</p></div>`;
+                        container.appendChild(card);
                     });
-                } catch (e) {
-                    container.innerHTML = `<p class="text-center text-rose-500 text-xs mt-10">ERROR: ${e.message}</p>`;
-                }
+                }, (e) => {
+                    container.innerHTML = `<p class="text-center text-rose-500 text-xs mt-10 italic">SYNC ERROR: ${e.code}</p>`;
+                });
             }
         };
 
-        window.onload = () => { game.resize(); };
+        window.onload = () => { game.resize(); tryAuth(); };
         window.addEventListener('resize', game.resize);
         
         const handleInteraction = (ex, ey) => {
