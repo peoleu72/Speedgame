@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>AI Reflex Challenge - Connection Fixed</title>
+    <title>AI Reflex Challenge - Online Mode</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;900&family=Noto+Sans+KR:wght@300;700&display=swap');
@@ -25,12 +25,8 @@
             border-radius: 1rem; 
             font-weight: 600;
         }
-        input:focus { 
-            border-color: #38bdf8; 
-            background: rgba(30, 41, 59, 0.9) !important;
-            box-shadow: 0 0 15px rgba(56, 189, 248, 0.2); 
-        }
-
+        input:focus { border-color: #38bdf8; background: rgba(30, 41, 59, 0.9) !important; box-shadow: 0 0 15px rgba(56, 189, 248, 0.2); }
+        
         @keyframes pulse-border {
             0% { border-color: rgba(56, 189, 248, 0.3); transform: scale(1); }
             50% { border-color: rgba(56, 189, 248, 0.8); transform: scale(1.02); }
@@ -44,16 +40,15 @@
         <canvas id="gameCanvas" class="block w-full h-full z-0"></canvas>
         
         <div id="ui-layer" class="absolute inset-0 z-10 flex items-center justify-center pointer-events-none p-6">
-            
             <!-- HUD -->
             <div id="hud" class="hidden absolute top-10 left-6 right-6 flex justify-between pointer-events-none">
-                <div class="glass-panel px-5 py-2 rounded-xl border-l-4 border-sky-500">
+                <div class="glass-panel px-5 py-2 rounded-xl border-l-4 border-sky-500 text-left">
                     <p class="text-[9px] text-sky-400 font-bold uppercase font-orbitron">Score</p>
-                    <p id="score-display" class="text-xl font-black font-orbitron">0000</p>
+                    <p id="score-display" class="text-xl font-black font-orbitron text-white">0000</p>
                 </div>
                 <div class="glass-panel px-5 py-2 rounded-xl text-right border-r-4 border-rose-500">
                     <p class="text-[9px] text-rose-400 font-bold uppercase font-orbitron">Level</p>
-                    <p id="level-display" class="text-xl font-black font-orbitron">LV.01</p>
+                    <p id="level-display" class="text-xl font-black font-orbitron text-white">LV.01</p>
                 </div>
             </div>
 
@@ -70,16 +65,14 @@
             <!-- Save Screen -->
             <div id="screen-save" class="hidden pointer-events-auto w-full max-w-sm">
                 <div class="glass-panel p-8 rounded-[2.5rem]">
-                    <h2 class="text-2xl font-black text-rose-500 mb-4 text-center uppercase font-orbitron italic">Game Over</h2>
-                    
+                    <h2 class="text-2xl font-black text-rose-500 mb-4 text-center uppercase font-orbitron italic text-white">Game Over</h2>
                     <div class="prize-notice bg-sky-500/20 py-4 px-2 rounded-2xl border-2 border-sky-400/50 mb-6 text-center shadow-lg shadow-sky-500/10">
                         <p class="text-white text-base font-bold leading-tight">
                             🎁 추후 상품 증정을 위해<br/>정보를 입력해주세요
                         </p>
                     </div>
-                    
                     <div class="bg-slate-900/60 rounded-2xl p-4 mb-6 flex justify-between items-center border border-slate-800">
-                        <div>
+                        <div class="text-left">
                             <p class="text-slate-500 text-[9px] font-bold font-orbitron mb-1 tracking-tighter">FINAL SCORE</p>
                             <span id="final-score" class="text-3xl font-black text-white font-orbitron">0</span>
                         </div>
@@ -88,7 +81,6 @@
                             <span id="final-level-txt" class="text-lg font-black text-sky-400 font-orbitron">LV.01</span>
                         </div>
                     </div>
-
                     <div class="space-y-4">
                         <input type="text" id="in-name" placeholder="이름">
                         <input type="number" id="in-age" placeholder="나이">
@@ -123,34 +115,48 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, onSnapshot, serverTimestamp, query, limit } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
 
-        // 환경 변수 안전 로드
-        let firebaseApp, auth, db;
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-reflex-app';
-        let user = null;
+        // --- 중요: 실제 배포 시 아래 config 변수에 본인의 Firebase 설정값을 넣어주세요 ---
+        let firebaseConfig = null;
+        try {
+            if (typeof __firebase_config !== 'undefined') {
+                firebaseConfig = JSON.parse(__firebase_config);
+            } else {
+                // 직접 배포 시 여기에 파이어베이스 콘솔에서 복사한 객체를 넣으세요.
+                // firebaseConfig = { apiKey: "...", authDomain: "...", ... };
+            }
+        } catch(e) {}
 
-        const setUIAuthenticated = () => {
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'kbism-reflex-v1';
+        let firebaseApp, auth, db, user = null;
+
+        const setUIState = (statusText, colorClass, btnEnabled) => {
             const status = document.getElementById('status-text');
-            status.innerText = "SYSTEM ONLINE";
-            status.className = "text-sky-400 text-[9px] mb-10 tracking-[0.3em] font-orbitron italic";
+            status.innerText = statusText;
+            status.className = `${colorClass} text-[9px] mb-10 tracking-[0.3em] font-orbitron italic`;
             const btn = document.getElementById('btn-start');
-            btn.disabled = false;
-            btn.className = "btn-tap w-full bg-sky-600 py-5 rounded-2xl font-black text-lg uppercase font-orbitron text-white";
-            btn.innerText = "START SESSION";
+            btn.disabled = !btnEnabled;
+            if (btnEnabled) {
+                btn.className = "btn-tap w-full bg-sky-600 py-5 rounded-2xl font-black text-lg uppercase font-orbitron text-white";
+                btn.innerText = "START SESSION";
+            }
         };
 
-        const tryAuth = async () => {
+        const initSystem = async () => {
+            if (!firebaseConfig) {
+                setUIState("OFFLINE MODE (CONFIG MISSING)", "text-rose-500", true);
+                return;
+            }
+
             try {
-                if (typeof __firebase_config === 'undefined') throw new Error("No Config");
-                const config = JSON.parse(__firebase_config);
-                firebaseApp = initializeApp(config);
+                firebaseApp = initializeApp(firebaseConfig);
                 auth = getAuth(firebaseApp);
                 db = getFirestore(firebaseApp);
 
                 onAuthStateChanged(auth, (u) => {
                     user = u;
-                    if (u) setUIAuthenticated();
+                    if (u) setUIState("SYSTEM ONLINE", "text-sky-400", true);
                 });
 
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
@@ -159,12 +165,8 @@
                     await signInAnonymously(auth);
                 }
             } catch (e) {
-                console.warn("Auth Failed, enabling local mode", e);
-                // 인증에 실패하더라도 버튼은 활성화 (데이터 저장은 실패할 수 있음)
-                setUIAuthenticated();
-                const status = document.getElementById('status-text');
-                status.innerText = "LOCAL MODE (OFFLINE)";
-                status.className = "text-rose-500 text-[9px] mb-10 tracking-[0.3em] font-orbitron italic";
+                console.error("Firebase Init Error:", e);
+                setUIState("CONNECTION ERROR (LOCAL MODE)", "text-amber-500", true);
             }
         };
 
@@ -181,6 +183,8 @@
                 state.mode = 'PLAY'; state.score = 0; state.level = 1; state.targets = [];
                 document.getElementById('screen-start').classList.add('hidden');
                 document.getElementById('hud').classList.remove('hidden');
+                document.getElementById('score-display').innerText = "0000";
+                document.getElementById('level-display').innerText = "LV.01";
                 game.loop();
             },
             over: () => {
@@ -193,14 +197,14 @@
             loop: () => {
                 if (state.mode !== 'PLAY') return;
                 const now = Date.now();
-                const spawnInterval = Math.max(300, 1300 - (state.level * 100));
+                const spawnInterval = Math.max(350, 1400 - (state.level * 100));
                 if (now - state.last > spawnInterval) {
                     state.targets.push({ 
-                        x: 60 + Math.random() * (canvas.width - 120), 
+                        x: 80 + Math.random() * (canvas.width - 160), 
                         y: 180 + Math.random() * (canvas.height - 360), 
-                        r: 40, 
+                        r: 45, 
                         s: now, 
-                        d: Math.max(500, 3000 - (state.level * 250)) 
+                        d: Math.max(600, 3200 - (state.level * 280)) 
                     });
                     state.last = now;
                 }
@@ -209,9 +213,17 @@
                     const t = state.targets[i];
                     const p = (now - t.s) / t.d;
                     if (p >= 1) { game.over(); return; }
+                    
+                    // 그라데이션 타겟
+                    const grad = ctx.createRadialGradient(t.x, t.y, 0, t.x, t.y, t.r * (1-p));
+                    grad.addColorStop(0, '#38bdf8');
+                    grad.addColorStop(1, '#0ea5e9');
+                    
                     ctx.beginPath(); ctx.arc(t.x, t.y, t.r * (1-p), 0, Math.PI*2);
-                    ctx.fillStyle = `rgba(56, 189, 248, ${0.8 * (1-p)})`; ctx.fill();
-                    ctx.strokeStyle = "white"; ctx.lineWidth = 2; ctx.stroke();
+                    ctx.fillStyle = grad;
+                    ctx.globalAlpha = 0.8 * (1-p);
+                    ctx.fill();
+                    ctx.strokeStyle = "white"; ctx.lineWidth = 3; ctx.globalAlpha = 1; ctx.stroke();
                 }
                 requestAnimationFrame(game.loop);
             },
@@ -219,33 +231,32 @@
                 const name = document.getElementById('in-name').value.trim();
                 const age = document.getElementById('in-age').value.trim();
                 const phone = document.getElementById('in-phone').value.trim();
-                if (!name || !age || !phone) return;
+                if (!name || !age || !phone) { alert("정보를 모두 입력해주세요."); return; }
 
-                const btn = document.getElementById('btn-save');
-                const err = document.getElementById('msg-error');
-                
                 if (!db) {
-                    err.innerText = "OFFLINE: RECORD NOT SAVED";
-                    err.classList.remove('hidden');
-                    setTimeout(() => ui.goHome(), 2000);
+                    alert("온라인 모드가 아닙니다. 기록을 저장할 수 없습니다.");
+                    ui.goHome();
                     return;
                 }
 
+                const btn = document.getElementById('btn-save');
                 btn.disabled = true; btn.innerText = "SAVING...";
+
                 try {
                     const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'reflex_scores');
-                    await addDoc(colRef, { name, age, phone, score: state.score, level: state.level, uid: user?.uid || 'anonymous', createdAt: serverTimestamp() });
+                    await addDoc(colRef, { name, age, phone, score: state.score, level: state.level, uid: user?.uid || 'anon', createdAt: serverTimestamp() });
                     ui.goHome();
                 } catch (e) {
                     btn.disabled = false; btn.innerText = "RETRY";
-                    err.innerText = "ERROR: " + e.code; err.classList.remove('hidden');
+                    document.getElementById('msg-error').innerText = "SAVE ERROR: " + e.code;
+                    document.getElementById('msg-error').classList.remove('hidden');
                 }
             }
         };
 
         const ui = {
             showAdmin: () => { document.getElementById('screen-start').classList.add('hidden'); document.getElementById('screen-admin-auth').classList.remove('hidden'); },
-            doAdminAuth: () => { if (document.getElementById('admin-pw').value === 'one0314') ui.loadList(); else alert("INVALID PW"); },
+            doAdminAuth: () => { if (document.getElementById('admin-pw').value === 'one0314') ui.loadList(); else alert("비밀번호 불일치"); },
             goHome: () => {
                 state.mode = 'IDLE';
                 ['hud', 'screen-save', 'screen-admin-auth', 'screen-list'].forEach(id => document.getElementById(id).classList.add('hidden'));
@@ -255,7 +266,7 @@
                 ctx.clearRect(0,0,canvas.width,canvas.height);
             },
             loadList: () => {
-                if (!db) { alert("OFFLINE MODE: NO DATA"); return; }
+                if (!db) { alert("DB 미연결 상태입니다."); return; }
                 document.getElementById('screen-admin-auth').classList.add('hidden');
                 document.getElementById('screen-list').classList.remove('hidden');
                 const container = document.getElementById('data-list');
@@ -264,20 +275,20 @@
                 const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'reflex_scores');
                 onSnapshot(colRef, (snap) => {
                     const data = snap.docs.map(d => d.data()).sort((a,b) => (b.score || 0) - (a.score || 0));
-                    container.innerHTML = data.length ? '' : '<p class="text-center mt-10 text-slate-500 font-orbitron">EMPTY</p>';
+                    container.innerHTML = data.length ? '' : '<p class="text-center mt-10 text-slate-500 font-orbitron">NO RECORDS</p>';
                     data.forEach((p, i) => {
                         const card = document.createElement('div');
                         card.className = 'glass-panel p-6 rounded-2xl flex justify-between items-center';
-                        card.innerHTML = `<div><p class="text-white font-bold">${i+1}. ${p.name} <span class="text-slate-500 font-normal text-xs ml-1">${p.age}세</span></p><p class="text-[9px] text-slate-600 mt-1">${p.phone}</p></div><div class="text-right"><p class="text-xl font-black text-sky-400 font-orbitron">${p.score}</p></div>`;
+                        card.innerHTML = `<div class="text-left"><p class="text-white font-bold">${i+1}. ${p.name} <span class="text-slate-500 font-normal text-xs ml-1">${p.age}세</span></p><p class="text-[9px] text-slate-600 mt-1">${p.phone}</p></div><div class="text-right"><p class="text-xl font-black text-sky-400 font-orbitron">${p.score}</p></div>`;
                         container.appendChild(card);
                     });
-                }, (e) => {
-                    container.innerHTML = `<p class="text-center text-rose-500 text-xs mt-10 italic">SYNC ERROR: ${e.code}</p>`;
+                }, (err) => {
+                    container.innerHTML = `<p class="text-center text-rose-500 text-xs mt-10">DB ERROR: ${err.code}</p>`;
                 });
             }
         };
 
-        window.onload = () => { game.resize(); tryAuth(); };
+        window.onload = () => { game.resize(); initSystem(); };
         window.addEventListener('resize', game.resize);
         
         const handleInteraction = (ex, ey) => {
@@ -286,7 +297,7 @@
             const x = ex - rect.left, y = ey - rect.top;
             for (let i = state.targets.length - 1; i >= 0; i--) {
                 const t = state.targets[i];
-                if (Math.hypot(t.x - x, t.y - y) < t.r * 2) {
+                if (Math.hypot(t.x - x, t.y - y) < t.r * 1.5) {
                     state.targets.splice(i, 1);
                     state.score += 10;
                     if (state.score % 50 === 0) state.level++;
