@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AI Reflex Challenge - Layout Fix</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;900&family=Noto+Sans+KR:wght@300;700&display=swap');
+        
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #020617;
+            color: white;
+            font-family: 'Noto Sans KR', sans-serif;
+            overflow: hidden;
+            touch-action: none;
+        }
+
+        .font-orbitron { font-family: 'Orbitron', sans-serif; }
+        
+        /* 캔버스가 부모 영역을 꽉 채우도록 설정 */
+        #canvas-wrapper {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at center, #0f172a 0%, #020617 100%);
+        }
+
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(56, 189, 248, 0.25);
+            box-shadow: 0 0 40px rgba(0,0,0,0.6);
+        }
+
+        .btn-tap:active { transform: scale(0.95); opacity: 0.9; }
+
+        /* 입력창 포커스 시 브라우저 줌 방지 */
+        input { font-size: 16px !important; }
+    </style>
+</head>
+<body>
+    <div id="canvas-wrapper">
+        <!-- UI Layer -->
+        <div id="ui-container" class="absolute inset-0 z-20 flex items-center justify-center pointer-events-none p-8 md:p-20">
+            
+            <!-- HUD -->
+            <div id="hud" class="hidden absolute top-0 left-0 right-0 flex justify-between p-6 pointer-events-none">
+                <div class="glass-panel px-5 py-2 rounded-xl border-l-4 border-sky-500">
+                    <p class="text-[10px] text-sky-400 font-bold uppercase tracking-widest font-orbitron">Score</p>
+                    <p id="score-display" class="text-xl md:text-2xl font-black font-orbitron">0000</p>
+                </div>
+                <div class="glass-panel px-5 py-2 rounded-xl text-right border-r-4 border-rose-500">
+                    <p class="text-[10px] text-rose-400 font-bold uppercase tracking-widest font-orbitron">Level</p>
+                    <p id="level-display" class="text-xl md:text-2xl font-black font-orbitron">LV.01</p>
+                </div>
+            </div>
+
+            <!-- Start Card: 중앙에 위치하며 상하좌우 여백 확보 -->
+            <div id="idle-screen" class="pointer-events-auto w-full max-w-sm">
+                <div class="glass-panel p-10 md:p-14 rounded-[3rem] text-center">
+                    <h1 class="text-4xl md:text-5xl font-black text-sky-400 mb-2 italic tracking-tighter uppercase font-orbitron">AI Reflex</h1>
+                    <p class="text-slate-500 text-[10px] mb-12 tracking-[0.4em] font-orbitron font-bold">PRECISION TRACKING</p>
+                    <button onclick="window.game.start()" class="btn-tap w-full bg-sky-600 hover:bg-sky-500 py-5 rounded-2xl font-black text-lg shadow-xl shadow-sky-900/40 uppercase tracking-widest font-orbitron text-white">Start Session</button>
+                    <button onclick="window.ui.showAdminAuth()" class="w-full mt-8 text-slate-700 text-[10px] font-bold tracking-widest uppercase font-orbitron">Administrator</button>
+                </div>
+            </div>
+
+            <!-- Game Over Screen -->
+            <div id="gameover-screen" class="hidden pointer-events-auto w-full max-w-sm">
+                <div class="glass-panel p-8 md:p-10 rounded-[2.5rem]">
+                    <h1 class="text-2xl font-black text-rose-600 italic mb-6 text-center uppercase font-orbitron">Game Over</h1>
+                    <div class="bg-black/40 rounded-2xl p-6 mb-6 flex justify-between items-center">
+                        <div>
+                            <p class="text-slate-500 text-[10px] font-bold font-orbitron">Score</p>
+                            <p id="final-score" class="text-3xl font-black text-white font-orbitron">0</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-slate-500 text-[10px] font-bold font-orbitron">Rank</p>
+                            <p id="final-level" class="text-xl font-black text-sky-400 font-orbitron">LV.0</p>
+                        </div>
+                    </div>
+                    <div class="space-y-3">
+                        <input type="text" id="name-input" placeholder="이름" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-4 text-white font-bold">
+                        <input type="number" id="age-input" placeholder="나이" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-4 text-white font-bold">
+                        <input type="tel" id="phone-input" placeholder="연락처" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-4 text-white font-bold">
+                        <button id="save-btn" onclick="window.game.saveAndRestart()" class="btn-tap w-full bg-sky-600 py-4 rounded-xl font-bold mt-2 font-orbitron tracking-widest text-white shadow-lg">SAVE DATA</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Admin Auth -->
+            <div id="admin-auth-screen" class="hidden pointer-events-auto w-full max-w-xs">
+                <div class="glass-panel p-10 rounded-[2.5rem]">
+                    <h2 class="text-rose-500 font-bold text-[10px] tracking-widest uppercase mb-6 text-center font-orbitron">Secure Gateway</h2>
+                    <input type="password" id="admin-pw" placeholder="PASSWORD" class="w-full bg-slate-800 border-none rounded-xl p-4 text-center mb-4 text-white">
+                    <div class="flex gap-2">
+                        <button onclick="window.ui.resetToMain()" class="flex-1 py-3 text-[10px] text-slate-500 font-orbitron">Back</button>
+                        <button onclick="window.ui.verifyAdmin()" class="flex-1 py-3 bg-rose-600 rounded-xl text-[10px] font-bold font-orbitron">Login</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Leaderboard -->
+        <div id="leaderboard-screen" class="hidden absolute inset-0 bg-slate-950 z-[100] flex flex-col pointer-events-auto">
+            <header class="p-6 bg-slate-900 border-b border-slate-800 flex justify-between items-center">
+                <h2 class="text-sky-400 font-black italic text-xl font-orbitron">Registry</h2>
+                <button onclick="window.ui.resetToMain()" class="bg-rose-600 px-6 py-2 rounded-xl text-xs font-bold text-white font-orbitron">Exit</button>
+            </header>
+            <div id="list-container" class="flex-1 overflow-y-auto p-6 space-y-4 max-w-2xl mx-auto w-full"></div>
+        </div>
+
+        <canvas id="gameCanvas"></canvas>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
+
+        // --- Services ---
+        let db = null;
+        let auth = null;
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'reflex-layout-fix';
+
+        const startServices = async () => {
+            try {
+                if (typeof __firebase_config !== 'undefined') {
+                    const app = initializeApp(JSON.parse(__firebase_config));
+                    auth = getAuth(app);
+                    db = getFirestore(app);
+                    await signInAnonymously(auth);
+                }
+            } catch (e) { console.warn("Cloud offline"); }
+        };
+
+        // --- Engine ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const engine = {
+            state: 'IDLE',
+            score: 0,
+            level: 1,
+            targets: [],
+            lastSpawn: 0,
+            spawnInterval: 1200,
+            animationId: null,
+            pixelRatio: window.devicePixelRatio || 1
+        };
+
+        const game = {
+            resize: () => {
+                const parent = canvas.parentElement;
+                const w = parent.clientWidth;
+                const h = parent.clientHeight;
+                canvas.width = w * engine.pixelRatio;
+                canvas.height = h * engine.pixelRatio;
+                canvas.style.width = w + 'px';
+                canvas.style.height = h + 'px';
+                ctx.setTransform(engine.pixelRatio, 0, 0, engine.pixelRatio, 0, 0);
+            },
+            start: () => {
+                engine.state = 'PLAYING';
+                engine.score = 0;
+                engine.level = 1;
+                engine.targets = [];
+                ui.showHUD();
+                game.loop();
+            },
+            end: () => {
+                engine.state = 'GAMEOVER';
+                cancelAnimationFrame(engine.animationId);
+                ui.showGameOver();
+            },
+            loop: () => {
+                if (engine.state !== 'PLAYING') return;
+                const now = Date.now();
+                const parent = canvas.parentElement;
+                const w = parent.clientWidth;
+                const h = parent.clientHeight;
+
+                if (now - engine.lastSpawn > engine.spawnInterval) {
+                    const r = Math.max(25, (Math.min(w, h) * 0.08) - (engine.level * 2));
+                    engine.targets.push({
+                        x: r + 40 + Math.random() * (w - r * 2 - 80),
+                        y: 150 + Math.random() * (h - 300),
+                        radius: r,
+                        start: now,
+                        duration: Math.max(600, 2400 - (engine.level * 180))
+                    });
+                    engine.lastSpawn = now;
+                }
+
+                ctx.clearRect(0, 0, w, h);
+                for (let i = engine.targets.length - 1; i >= 0; i--) {
+                    const t = engine.targets[i];
+                    const p = (now - t.start) / t.duration;
+                    if (p >= 1) { game.end(); return; }
+
+                    ctx.save();
+                    ctx.globalAlpha = 1 - p;
+                    ctx.beginPath();
+                    ctx.arc(t.x, t.y, t.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = '#38bdf8';
+                    ctx.shadowBlur = 15;
+                    ctx.shadowColor = '#38bdf8';
+                    ctx.fill();
+                    ctx.strokeStyle = 'white';
+                    ctx.lineWidth = 4;
+                    ctx.stroke();
+                    ctx.restore();
+                }
+                engine.animationId = requestAnimationFrame(game.loop);
+            },
+            handleInput: (ex, ey) => {
+                if (engine.state !== 'PLAYING') return;
+                // 캔버스의 실제 위치(Rect)를 계산하여 정확한 좌표 매핑
+                const rect = canvas.getBoundingClientRect();
+                const x = ex - rect.left;
+                const y = ey - rect.top;
+
+                for (let i = engine.targets.length - 1; i >= 0; i--) {
+                    const t = engine.targets[i];
+                    const dist = Math.hypot(t.x - x, t.y - y);
+                    if (dist < t.radius * 2.5) {
+                        engine.targets.splice(i, 1);
+                        engine.score += 10;
+                        if (engine.score % 100 === 0) engine.level++;
+                        ui.updateHUD();
+                        return;
+                    }
+                }
+            },
+            saveAndRestart: async () => {
+                const name = document.getElementById('name-input').value.trim();
+                const age = document.getElementById('age-input').value.trim();
+                const phone = document.getElementById('phone-input').value.trim();
+                if (!name || !age || !phone) return;
+                
+                const btn = document.getElementById('save-btn');
+                btn.disabled = true;
+                btn.innerText = "Saving...";
+
+                try {
+                    if (db) {
+                        await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'participants'), {
+                            name, age, phone, score: engine.score, timestamp: serverTimestamp()
+                        });
+                    }
+                } catch (e) { console.error(e); }
+                finally { ui.resetToMain(); }
+            }
+        };
+
+        const ui = {
+            showHUD: () => {
+                document.getElementById('idle-screen').classList.add('hidden');
+                document.getElementById('hud').classList.remove('hidden');
+            },
+            updateHUD: () => {
+                document.getElementById('score-display').innerText = engine.score.toString().padStart(4, '0');
+                document.getElementById('level-display').innerText = `LV.${engine.level.toString().padStart(2, '0')}`;
+            },
+            showGameOver: () => {
+                document.getElementById('hud').classList.add('hidden');
+                document.getElementById('gameover-screen').classList.remove('hidden');
+                document.getElementById('final-score').innerText = engine.score;
+                document.getElementById('final-level').innerText = `LV.${engine.level}`;
+            },
+            showAdminAuth: () => {
+                document.getElementById('idle-screen').classList.add('hidden');
+                document.getElementById('admin-auth-screen').classList.remove('hidden');
+            },
+            resetToMain: () => {
+                cancelAnimationFrame(engine.animationId);
+                engine.state = 'IDLE';
+                document.querySelectorAll('#ui-container > div').forEach(d => d.classList.add('hidden'));
+                document.getElementById('leaderboard-screen').classList.add('hidden');
+                document.getElementById('idle-screen').classList.remove('hidden');
+                document.getElementById('save-btn').disabled = false;
+                document.getElementById('save-btn').innerText = "SAVE DATA";
+            },
+            verifyAdmin: () => {
+                if (document.getElementById('admin-pw').value === 'admin1234') ui.loadLeaderboard();
+                else alert("Denied");
+            },
+            loadLeaderboard: () => {
+                document.getElementById('admin-auth-screen').classList.add('hidden');
+                document.getElementById('leaderboard-screen').classList.remove('hidden');
+                if (!db) return;
+                onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'participants'), (snap) => {
+                    const list = snap.docs.map(d => d.data()).sort((a,b) => b.score - a.score);
+                    const container = document.getElementById('list-container');
+                    container.innerHTML = '';
+                    list.forEach((p, i) => {
+                        const row = document.createElement('div');
+                        row.className = 'glass-panel p-5 rounded-2xl flex justify-between items-center';
+                        row.innerHTML = `<div><p class="font-bold">${i+1}. ${p.name}</p><p class="text-xs text-slate-500">${p.phone}</p></div><p class="text-xl font-black text-sky-400 font-orbitron">${p.score}</p>`;
+                        container.appendChild(row);
+                    });
+                });
+            }
+        };
+
+        // --- Init ---
+        window.onload = () => {
+            game.resize();
+            startServices();
+        };
+
+        window.addEventListener('resize', game.resize);
+
+        const interaction = (e) => {
+            const x = e.clientX || (e.touches && e.touches[0].clientX);
+            const y = e.clientY || (e.touches && e.touches[0].clientY);
+            if (x !== undefined) game.handleInput(x, y);
+        };
+
+        window.addEventListener('mousedown', interaction);
+        window.addEventListener('touchstart', (e) => {
+            interaction(e);
+            if (engine.state === 'PLAYING') e.preventDefault();
+        }, { passive: false });
+
+        window.game = game;
+        window.ui = ui;
+    </script>
+</body>
+</html>
